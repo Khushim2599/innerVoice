@@ -7,6 +7,7 @@ Features:
 - Mood Calendar: Log and track emotional trends over time.
 - Breathwork Tool: Simple breathing exercises to help you ground and relax.
 - User Accounts: Sign up, log in, and view your personal emotion history.
+- Journaling Tool: Allows users to maintain an online journal.
 
 Tech Stack
 - Frontend/UI: Streamlit
@@ -30,7 +31,7 @@ Future Plans
 - Mood analytics with emotional trend insights.
 - Support for multiple languages and accessibility-first design.
 - Improved webcam accuracy and lighting adjustments.
-- More coping tools: journaling, music therapy, panic attack guides.
+- More coping tools: music therapy, panic attack guides, therapy counseling
 
  Inspiration
 This project was created with love at [Hackathon Name] to address the mental health needs of often-overlooked communities. We believe in a world where everyone deserves support, no matter their ability to express themselves.

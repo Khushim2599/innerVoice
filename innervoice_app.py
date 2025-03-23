@@ -166,39 +166,32 @@ def tools():
 
     with tab2:
         st.subheader("Emotion Detector")
-        st.write("Preview your webcam before taking your picture.")
-
-        FRAME_WINDOW = st.empty()
-        if st.button("Start Preview", key=str(uuid.uuid4())):
+        st.write("Click below to capture your emotion instantly.")
+        if st.button("Detect Emotion"):
             cap = cv2.VideoCapture(0)
-            st.session_state['preview_active'] = True
-            placeholder = st.empty()
-            unique_button_key = str(uuid.uuid4())
-
-            while st.session_state['preview_active'] and cap.isOpened():
+            time.sleep(2)  # Let camera warm up
+            for _ in range(15):
                 ret, frame = cap.read()
                 if not ret:
-                    st.error("Failed to access webcam.")
                     break
-                placeholder.image(frame, channels="BGR", caption="Live Preview", use_container_width=True)
-                time.sleep(0.1)
-                if placeholder.button("I'm Ready! Take My Picture", key=unique_button_key):
-                    st.session_state['preview_active'] = False
-                    break
-
             cap.release()
-
-            if 'frame' in locals():
-                st.success("Capturing your image and analyzing...")
+            if not ret:
+                st.error("Could not access webcam. Please try again.")
+            else:
+                # Enhance brightness and contrast
+                enhanced = cv2.convertScaleAbs(frame, alpha=1.2, beta=30)
                 img_path = os.path.join(tempfile.gettempdir(), "captured.jpg")
-                cv2.imwrite(img_path, frame)
-                st.image(frame, caption="Captured Image", channels="BGR", use_container_width=True)
+                cv2.imwrite(img_path, enhanced)
+                st.image(enhanced, caption="Captured Image", channels="BGR", use_container_width=True)
                 try:
-                    result = DeepFace.analyze(img_path=img_path, actions=['emotion'], enforce_detection=False)
-                    emotion = result[0]['dominant_emotion']
-                    st.success(f"Detected emotion: {emotion}")
+                    result = DeepFace.analyze(img_path=img_path, actions=['emotion'], enforce_detection=True)
+                    emotion = result[0].get('dominant_emotion') if isinstance(result, list) else result.get('dominant_emotion')
+                    if emotion:
+                        st.success(f"Detected emotion: {emotion}")
+                    else:
+                        st.error("No dominant emotion found. Try again with more facial expression.")
                 except Exception as e:
-                    st.error("Could not detect a clear emotion. Please try again.")
+                    st.error("No face or emotion could be clearly detected. Please try again.")
 
     with tab3:
         st.subheader("ChatBot")

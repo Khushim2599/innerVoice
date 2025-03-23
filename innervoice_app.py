@@ -19,6 +19,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client.innervoice_app
 users_collection = db.users
 moods_collection = db.moods
+journal_collection = db.journal
 
 # ------------------- SESSION STATE -------------------
 def init_session():
@@ -91,13 +92,13 @@ def welcome():
                 height: 90vh;
             }
             .welcome-title {
-                font-size: 64px;
-                color: white;
+                font-size: 80px;
+                color: #5fa2b3;
                 font-weight: bold;
             }
             .welcome-subtitle {
                 font-size: 24px;
-                color: #eeeeee;
+                color: #6b7173;
                 margin-top: 10px;
             }
         </style>
@@ -133,16 +134,24 @@ def login():
                 st.error("Invalid credentials.")
 
 def about():
-    st.header("About InnerVoice")
+    st.header("About Inner Voice")
     st.write("""
-    InnerVoice is designed to help neurodivergent and disabled users gain control over their emotional world. 
-    By combining emotion detection, guided reflection, and coping tools, we make communication easier — even when words are hard to find.
+    🌟 Our Mission
+    InnerVoice is on a mission to make emotional well-being more accessible — especially for neurodivergent and disabled individuals. We believe everyone deserves the tools to understand, express, and navigate their emotions — even when words feel out of reach.
+
+    ### 💡 How It Works
+    InnerVoice blends emotion detection technology with supportive tools like guided breathwork, mood tracking, journaling, and a gentle chatbot. 
+
+    Whether you want to reflect, reset, or just be heard — we’re here for you, one step at a time.
+
+    Explore the tabs under "Your Tools" to get started!
     """)
 
 def profile():
     st.header("👤 Your Profile")
     if st.session_state['current_user']:
         st.write(f"Hello, **{st.session_state['current_user']}** 👋")
+
         st.subheader("Your Mood History")
         user_logs = list(moods_collection.find({"username": st.session_state['current_user']}))
         if user_logs:
@@ -151,6 +160,15 @@ def profile():
             st.dataframe(df.sort_values(by="date", ascending=False))
         else:
             st.info("You haven't logged any moods yet.")
+
+        st.subheader("Your Journal Entries")
+        journal_logs = list(journal_collection.find({"username": st.session_state['current_user']}))
+        if journal_logs:
+            for entry in sorted(journal_logs, key=lambda x: x["date"], reverse=True):
+                st.markdown(f"**📝 {entry['title']}**  \n*{entry['date']}*  \n{entry['content']}")
+                st.markdown("---")
+        else:
+            st.info("You haven't written any journal entries yet.")
     else:
         st.warning("Please log in to view your profile.")
 
@@ -158,18 +176,35 @@ def tools():
     st.header("🧰 Your Tools")
     st.write("Access tools to help you reflect and grow.")
 
-    tab1, tab2, tab3, tab4 = st.tabs(["Breathwork", "Emotion Detector", "ChatBot", "Mood Calendar"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs([
+        "Breathwork", 
+        "Emotion Detector", 
+        "ChatBot", 
+        "Mood Calendar",
+        "Journal"
+    ])
 
     with tab1:
         st.subheader("Breathwork")
-        st.write("Try a simple breathing exercise: Inhale for 4 seconds, hold for 4, exhale for 4. 💨")
+        st.write("Let's do a guided box breathing exercise together.")
+
+        if st.button("Start Breathwork Session"):
+            for i in range(4):
+                st.write(f"🌬️ Inhale... {4 - i} seconds")
+                time.sleep(1)
+            st.write("Hold...")
+            time.sleep(4)
+            for i in range(4):
+                st.write(f"😮‍💨 Exhale... {4 - i} seconds")
+                time.sleep(1)
+            st.write("Great job! Do you want to try it again?")
 
     with tab2:
         st.subheader("Emotion Detector")
         st.write("Click below to capture your emotion instantly.")
         if st.button("Detect Emotion"):
             cap = cv2.VideoCapture(0)
-            time.sleep(2)  # Let camera warm up
+            time.sleep(2)
             for _ in range(15):
                 ret, frame = cap.read()
                 if not ret:
@@ -178,7 +213,6 @@ def tools():
             if not ret:
                 st.error("Could not access webcam. Please try again.")
             else:
-                # Enhance brightness and contrast
                 enhanced = cv2.convertScaleAbs(frame, alpha=1.2, beta=30)
                 img_path = os.path.join(tempfile.gettempdir(), "captured.jpg")
                 cv2.imwrite(img_path, enhanced)
@@ -212,7 +246,7 @@ def tools():
             elif "journal" in user_input.lower():
                 response = "Open up your notes or journal and just let the thoughts flow. ✍️"
             elif any(word in user_input.lower() for word in ["talk", "friend"]):
-                response = "Consider calling a friend or someone you trust. You're not alone. 📞"
+                response = "Consider calling a friend or someone you trust. You're not alone. 📲"
             else:
                 response = "Thanks for sharing. Would you like to explore coping strategies or keep talking?"
             st.session_state.chat_history.append(("Bot", response))
@@ -225,23 +259,74 @@ def tools():
         today = now.strftime("%Y-%m-%d %H:%M:%S")
         mood = st.selectbox("Log in the mood for " + today, ["😀 Happy", "😔 Sad", "😠 Angry", "😨 Anxious", "😌 Calm"])
         if st.button("Log Mood"):
+            mood_text = mood.split(" ", 1)[1]
             moods_collection.insert_one({
                 "username": st.session_state['current_user'],
                 "date": today,
-                "mood": mood
+                "mood": mood_text
             })
-            st.success("Mood logged!")
+            st.success(f"Mood '{mood_text}' logged!")
+            st.rerun()
+
         st.write("### Your Mood Log")
         mood_entries = list(moods_collection.find({"username": st.session_state['current_user']}))
         if mood_entries:
             mood_entries.sort(key=lambda x: x['date'], reverse=True)
-            formatted_entries = [f"{entry['date']}: {entry['mood']}" for entry in mood_entries]
-            delete_target = st.selectbox("Select an entry to delete", formatted_entries)
+            entry_map = {f"{entry['date']}: {entry['mood']}": entry for entry in mood_entries}
+            delete_target = st.selectbox("Select an entry to delete", list(entry_map.keys()))
             if st.button("Delete Selected Entry"):
-                target_date = delete_target.split(":")[0]
-                moods_collection.delete_one({"username": st.session_state['current_user'], "date": target_date})
+                to_delete = entry_map[delete_target]
+                moods_collection.delete_one({"_id": to_delete["_id"]})
                 st.success("Mood entry deleted!")
                 st.rerun()
+
+    with tab5:
+        st.subheader("📓 Journal")
+        st.write("Write out what you're feeling. Your entries will be saved privately.")
+
+        with st.expander("➕ Add New Entry"):
+            title = st.text_input("Title:")
+            content = st.text_area("What's on your mind?")
+            if st.button("Save Entry"):
+                if title and content:
+                    journal_collection.insert_one({
+                        "username": st.session_state['current_user'],
+                        "date": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                        "title": title,
+                        "content": content
+                    })
+                    st.success("Journal entry saved!")
+                    st.rerun()
+                else:
+                    st.warning("Please enter both a title and content.")
+
+        st.write("### 📖 Your Journal Entries")
+        entries = list(journal_collection.find({"username": st.session_state['current_user']}))
+        if entries:
+            entries.sort(key=lambda x: x['date'], reverse=True)
+            entry_map = {f"{e['date']} - {e['title']}": e for e in entries}
+            selected = st.selectbox("Select an entry to view", list(entry_map.keys()))
+            if selected:
+                entry = entry_map[selected]
+                st.markdown(f"**Title:** {entry['title']}")
+                st.markdown(f"**Date:** {entry['date']}")
+                edited_content = st.text_area("Edit Entry", value=entry['content'], key="edit_area")
+                col1, col2 = st.columns([1, 1])
+                with col1:
+                    if st.button("📏 Save Changes"):
+                        journal_collection.update_one(
+                            {"_id": entry["_id"]},
+                            {"$set": {"content": edited_content}}
+                        )
+                        st.success("Changes saved!")
+                        st.rerun()
+                with col2:
+                    if st.button("🔝️ Delete Entry"):
+                        journal_collection.delete_one({"_id": entry["_id"]})
+                        st.success("Entry deleted.")
+                        st.rerun()
+        else:
+            st.info("No journal entries found.")
 
 # ------------------- ROUTING -------------------
 navigation()
